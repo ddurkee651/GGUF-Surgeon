@@ -2,11 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    
+    <!-- For Android 11+ scoped storage -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
 
@@ -17,44 +20,59 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.GGUFSurgeon"
+        android:theme="@style/Theme.AppCompat.NoActionBar"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
+        android:largeHeap="true"
         tools:targetApi="31">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.GGUFSurgeon">
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:windowSoftInputMode="adjustResize">
+            
+            <!-- Launcher intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-            <!-- Handle GGUF files -->
+            
+            <!-- Handle GGUF files - FILE scheme -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="file" />
-                <data android:scheme="content" />
                 <data android:host="*" />
                 <data android:pathPattern=".*\\.gguf" />
                 <data android:pathPattern=".*\\..*\\.gguf" />
-                <data android:pathPattern=".*\\..*\\..*\\.gguf" />
                 <data android:mimeType="*/*" />
             </intent-filter>
             
+            <!-- Handle GGUF files - CONTENT scheme -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="content" />
-                <data android:mimeType="application/octet-stream" />
                 <data android:host="*" />
                 <data android:pathPattern=".*\\.gguf" />
+                <data android:pathPattern=".*\\..*\\.gguf" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            
+            <!-- Handle GGUF files - GET_CONTENT -->
+            <intent-filter>
+                <action android:name="android.intent.action.GET_CONTENT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.OPENABLE" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
 
+        <!-- FileProvider for sharing APKs and file access -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
