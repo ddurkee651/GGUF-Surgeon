@@ -1,133 +1,37 @@
-name: Build GGUF Model Surgeon
+name: Build Debug APK
 
 on:
   push:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
-  build:
+  debug-build:
     name: Build Debug APK
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: wrapper
-          cache-read-only: false
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Install NDK
         run: |
           sdkmanager "ndk;25.2.9519653" "cmake;3.22.1"
-          echo "ANDROID_NDK=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: gguf-surgeon-debug
+          name: gguf-surgeon-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
-      - name: Build Release APK (unsigned)
-        run: ./gradlew assembleRelease --stacktrace
-
-      - name: Upload Unsigned Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: gguf-surgeon-release-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
-          retention-days: 30
-
-  native-build:
-    name: Verify Native Build
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Install NDK
-        run: |
-          sdkmanager "ndk;25.2.9519653" "cmake;3.22.1"
-          echo "ANDROID_NDK=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
-
-      - name: Build native libraries
-        run: |
-          cd app/src/main/cpp
-          cmake -B build \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-26 \
-            -DANDROID_NDK=$ANDROID_NDK \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake
-          cmake --build build
-
-      - name: Verify native libs
-        run: |
-          ls -la app/src/main/cpp/build/*.so || true
-          echo "Native build completed successfully"
-
-  matrix-build:
-    name: Build for Multiple ABIs
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        abi: [arm64-v8a, x86_64]
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-
-      - name: Install NDK
-        run: sdkmanager "ndk;25.2.9519653"
-
-      - name: Build for ${{ matrix.abi }}
-        run: |
-          cd app/src/main/cpp
-          cmake -B build-${{ matrix.abi }} \
-            -DANDROID_ABI=${{ matrix.abi }} \
-            -DANDROID_PLATFORM=android-26 \
-            -DANDROID_NDK=$ANDROID_HOME/ndk/25.2.9519653 \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake
-          cmake --build build-${{ matrix.abi }}
-
-      - name: Upload ${{ matrix.abi }} libs
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-libs-${{ matrix.abi }}
-          path: app/src/main/cpp/build-${{ matrix.abi }}/*.so
-          retention-days: 7
