@@ -85,7 +85,7 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
     
     // File handling
-    implementation("com.github.axet:java-unixdomainsocket:1.0.7")
+    implementation("com.kohlschutter.junixsocket:junixsocket-common:2.8.3")
     implementation("commons-io:commons-io:2.15.1")
     
     // JSON parsing
