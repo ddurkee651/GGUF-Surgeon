@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GGUF Model Surgeon</string>
+    <string name="app_description">Direct GGUF file control on your device</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_viewer">Viewer</string>
+    <string name="nav_edit">Edit</string>
+    <string name="nav_merge">Merge</string>
+    <string name="nav_optimize">Optimize</string>
+    
+    <!-- Actions -->
+    <string name="action_open">Open Model</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_export">Export</string>
+    <string name="action_share">Share</string>
+    <string name="action_delete">Delete</string>
+    
+    <!-- Model info -->
+    <string name="model_name">Model Name</string>
+    <string name="model_architecture">Architecture</string>
+    <string name="model_context">Context Length</string>
+    <string name="model_rope_base">RoPE Base</string>
+    <string name="model_rope_scaling">RoPE Scaling</string>
+    <string name="model_quantization">Quantization</string>
+    <string name="model_tensors">Tensors</string>
+    <string name="model_tokenizer">Tokenizer</string>
+    <string name="model_size">Size</string>
+    
+    <!-- Operations -->
+    <string name="operation_merge_lora">Merge LoRA</string>
+    <string name="operation_quantize">Quantize</string>
+    <string name="operation_edit_metadata">Edit Metadata</string>
+    <string name="operation_validate">Validate</string>
+    
+    <!-- Status messages -->
+    <string name="status_ready">Ready</string>
+    <string name="status_loading">Loading model…</string>
+    <string name="status_processing">Processing…</string>
+    <string name="status_complete">Complete</string>
+    <string name="status_error">Error</string>
+    
+    <!-- Errors -->
+    <string name="error_no_model">No model loaded</string>
+    <string name="error_invalid_file">Invalid GGUF file</string>
+    <string name="error_parse_failed">Failed to parse model</string>
+    <string name="error_save_failed">Failed to save model</string>
+</resources>
