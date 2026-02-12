@@ -1,68 +1,81 @@
 cmake_minimum_required(VERSION 3.22.1)
 project("ggufsurgeon")
 
-# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Set output directories
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI})
+# ===== LLAMA.CPP =====
+add_subdirectory(llama.cpp EXCLUDE_FROM_ALL)
 
-# Download and extract llama.cpp
-include(FetchContent)
-FetchContent_Declare(
-    llama_cpp
-    GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git
-    GIT_TAG b3623  # Stable release
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
+# Define llama.cpp sources
+set(LLAMA_COMMON_SOURCES
+    llama.cpp/ggml.c
+    llama.cpp/ggml-alloc.c
+    llama.cpp/ggml-backend.c
+    llama.cpp/ggml-quants.c
+    llama.cpp/llama.cpp
 )
 
-FetchContent_MakeAvailable(llama_cpp)
-
-# Set llama.cpp build options
-set(LLAMA_BUILD_TESTS OFF)
-set(LLAMA_BUILD_EXAMPLES OFF)
-set(LLAMA_BUILD_SERVER OFF)
-set(LLAMA_METAL OFF)
-set(LLAMA_CUBLAS OFF)
-set(LLAMA_VULKAN ON)
-
-# Add GGUF reader/writer library
-add_library(gguf_reader STATIC
-    ${llama_cpp_SOURCE_DIR}/ggml.c
-    ${llama_cpp_SOURCE_DIR}/ggml-alloc.c
-    ${llama_cpp_SOURCE_DIR}/ggml-backend.c
-    ${llama_cpp_SOURCE_DIR}/ggml-quants.c
-    ${llama_cpp_SOURCE_DIR}/llama.cpp
+set(LLAMA_COMMON_INCLUDES
+    llama.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp
 )
 
-target_include_directories(gguf_reader PRIVATE ${llama_cpp_SOURCE_DIR})
-target_compile_definitions(gguf_reader PRIVATE GGML_USE_ACCELERATE)
+# Build static library from llama.cpp
+add_library(llama_common STATIC ${LLAMA_COMMON_SOURCES})
+target_include_directories(llama_common PRIVATE ${LLAMA_COMMON_INCLUDES})
+target_compile_features(llama_common PUBLIC cxx_std_11)
 
-# Native interface
+# Android specific flags
+if(ANDROID)
+    target_compile_definitions(llama_common PRIVATE GGML_USE_ACCELERATE)
+endif()
+
+# Architecture optimizations
+if(ANDROID_ABI STREQUAL "arm64-v8a")
+    target_compile_options(llama_common PRIVATE 
+        -O3 
+        -march=armv8.2a+fp16+dotprod
+        -DGGML_USE_ACCELERATE
+    )
+endif()
+
+# ===== OUR NATIVE BRIDGE =====
 add_library(gguf_native SHARED
     native/gguf_bridge.cpp
-    native/gguf_parser.cpp
-    native/gguf_merger.cpp
-    native/gguf_quantizer.cpp
 )
 
 target_include_directories(gguf_native PRIVATE
-    ${llama_cpp_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/native
+    ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp
 )
 
 target_link_libraries(gguf_native
-    gguf_reader
-    jnigraphics
+    llama_common
     log
     z
+    dl
+    c++_static
 )
 
-# Architecture-specific optimizations
-if(ANDROID_ABI STREQUAL "arm64-v8a")
-    target_compile_options(gguf_reader PRIVATE -O3 -march=armv8.2a+fp16+dotprod)
-    target_compile_options(gguf_native PRIVATE -O3 -march=armv8.2a+fp16+dotprod)
+# OpenMP support (optional, improves performance)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(gguf_native OpenMP::OpenMP_CXX)
+endif()
+
+# ===== OUTPUT =====
+set_target_properties(gguf_native PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    PREFIX "lib"
+)
+
+# ===== COMPILER OPTIMIZATIONS =====
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_options(gguf_native PRIVATE -O3 -flto)
+    target_compile_options(llama_common PRIVATE -O3 -flto)
+else()
+    target_compile_options(gguf_native PRIVATE -O2 -g)
+    target_compile_options(llama_common PRIVATE -O2 -g)
 endif()
