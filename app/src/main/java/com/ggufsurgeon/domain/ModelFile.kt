@@ -1,7 +1,7 @@
 package com.ggufsurgeon.domain
 
 import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
+import kotlinx.parcelize.Parcelize  // ✅ ADD THIS IMPORT
 
 @Parcelize
 data class ModelFile(
@@ -18,12 +18,4 @@ data class ModelFile(
     val fileSize: Long = 0,
     val filePath: String = "",
     val validationWarnings: List<String> = emptyList()
-) : Parcelable
-
-@Parcelize
-data class TensorInfo(
-    val name: String,
-    val shape: List<Int>,
-    val type: String,
-    val bytes: Long
 ) : Parcelable
