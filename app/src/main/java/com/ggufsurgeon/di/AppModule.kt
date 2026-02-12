@@ -1,13 +1,9 @@
 package com.ggufsurgeon.di
 
 import android.content.Context
-import androidx.room.Room
 import com.ggufsurgeon.core.GgufBinaryEditor
 import com.ggufsurgeon.core.GgufValidator
-import com.ggufsurgeon.core.native.NativeGgufMerger
-import com.ggufsurgeon.core.native.NativeGgufQuantizer
-import com.ggufsurgeon.data.ModelRepository
-import com.ggufsurgeon.data.db.OperationDatabase
+import com.ggufsurgeon.core.python.PythonGgufBridge
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,35 +23,9 @@ object AppModule {
     @Singleton
     fun provideGgufBinaryEditor(): GgufBinaryEditor = GgufBinaryEditor()
     
+    // ✅ ADD THIS - Python bridge provider
     @Provides
     @Singleton
-    fun provideNativeGgufMerger(): NativeGgufMerger = NativeGgufMerger()
-    
-    @Provides
-    @Singleton
-    fun provideNativeGgufQuantizer(): NativeGgufQuantizer = NativeGgufQuantizer()
-    
-    @Provides
-    @Singleton
-    fun provideModelRepository(
-        validator: GgufValidator,
-        binaryEditor: GgufBinaryEditor,
-        merger: NativeGgufMerger,
-        quantizer: NativeGgufQuantizer
-    ): ModelRepository = ModelRepository(
-        validator = validator,
-        binaryEditor = binaryEditor,
-        nativeMerger = merger,
-        nativeQuantizer = quantizer
-    )
-    
-    @Provides
-    @Singleton
-    fun provideOperationDatabase(
-        @ApplicationContext context: Context
-    ): OperationDatabase = Room.databaseBuilder(
-        context,
-        OperationDatabase::class.java,
-        "operation_database"
-    ).build()
+    fun providePythonGgufBridge(@ApplicationContext context: Context): PythonGgufBridge = 
+        PythonGgufBridge(context)
 }
