@@ -14,6 +14,11 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
+// Import for mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: ModelRepository
@@ -249,8 +254,3 @@ class MainViewModel @Inject constructor(
         currentJob?.cancel()
     }
 }
-
-// Import for mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
