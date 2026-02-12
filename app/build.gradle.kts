@@ -16,18 +16,29 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
         }
     }
 
     buildTypes {
+        debug {
+            isDebuggable = true
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
     }
 
@@ -46,6 +57,14 @@ android {
 
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.11"
+    }
+
+    packagingOptions {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        // ✅ Don't strip native libraries
+        doNotStrip += "**/*.so"
     }
 }
 
@@ -80,8 +99,6 @@ dependencies {
     
     // JSON
     implementation("com.google.code.gson:gson:2.10.1")
-    
-    // ❌ NO TEST DEPENDENCIES - DELETED ALL OF THEM
 }
 
 kapt {
