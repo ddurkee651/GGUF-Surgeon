@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import android.content.Intent
 import com.ggufsurgeon.domain.ModelFile
 import com.ggufsurgeon.domain.TensorInfo
 
