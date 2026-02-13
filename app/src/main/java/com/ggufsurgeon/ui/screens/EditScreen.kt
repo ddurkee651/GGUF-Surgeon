@@ -1,5 +1,6 @@
 package com.ggufsurgeon.ui.screens
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -12,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import android.content.Intent
+import com.ggufsurgeon.domain.OperationResult
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -93,6 +94,273 @@ fun EditScreen(
                 }
             )
         }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (model == null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                "No model loaded. Please open a model first.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+                return@LazyColumn
+            }
+            
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                "Safe Metadata Editing",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "These changes only modify metadata, not tensor data. The original file remains untouched.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            "Current Model: ${model.name}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        Divider()
+                        
+                        OutlinedTextField(
+                            value = modelName,
+                            onValueChange = { modelName = it },
+                            label = { Text("Model Name") },
+                            placeholder = { Text(model.name) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        
+                        OutlinedTextField(
+                            value = contextLength,
+                            onValueChange = { contextLength = it },
+                            label = { Text("Context Length") },
+                            placeholder = { Text(model.contextLength.toString()) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = contextLength.isNotBlank() && contextLength.toIntOrNull() == null,
+                            supportingText = {
+                                if (contextLength.isNotBlank() && contextLength.toIntOrNull() == null) {
+                                    Text("Must be a valid number")
+                                }
+                            }
+                        )
+                        
+                        OutlinedTextField(
+                            value = ropeScaling,
+                            onValueChange = { ropeScaling = it },
+                            label = { Text("RoPE Scaling Factor") },
+                            placeholder = { Text(model.ropeScaling.toString()) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = ropeScaling.isNotBlank() && ropeScaling.toFloatOrNull() == null,
+                            supportingText = {
+                                if (ropeScaling.isNotBlank() && ropeScaling.toFloatOrNull() == null) {
+                                    Text("Must be a valid number")
+                                }
+                            }
+                        )
+                        
+                        Text(
+                            "⚠️ Changing these values affects model behavior. Only modify if you understand the implications.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Original Values",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        
+                        PropertyRow("Name", model.name)
+                        PropertyRow("Context Length", "${model.contextLength}")
+                        PropertyRow("RoPE Scaling", "${model.ropeScaling}")
+                        PropertyRow("Architecture", model.architecture)
+                        PropertyRow("Quantization", model.quantization)
+                    }
+                }
+            }
+            
+            if (vm.isOperationInProgress) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Operation in Progress",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                vm.operationDetails,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            LinearProgressIndicator(
+                                progress = vm.operationProgress / 100f,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Button(
+                                onClick = { vm.cancelOperation() },
+                                modifier = Modifier.align(Alignment.End),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            vm.lastOperationResult?.let { result ->
+                if (result is OperationResult.Success) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Operation Complete",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                                Text(
+                                    result.details,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    "Output: ${File(result.outputPath).name}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PropertyRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}        }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
