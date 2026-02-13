@@ -1,49 +1,55 @@
 package com.ggufsurgeon.ui.screens
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import com.ggufsurgeon.core.native.QuantizationType
+import com.ggufsurgeon.domain.OperationResult
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OptimizeScreen(vm: MainViewModel) {
+fun OptimizeScreen(
+    vm: MainViewModel,
+    onNavigateBack: () -> Unit
+) {
     val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
     
     var selectedFile by remember { mutableStateOf<File?>(null) }
-    var selectedQuantType by remember { mutableStateOf(QuantizationType.Q4_K) }
+    var selectedQuantType by remember { mutableStateOf("Q4_K_M") }
     var outputFileName by remember { mutableStateOf("") }
+    
+    val quantTypes = listOf("Q2_K", "Q3_K", "Q4_K", "Q5_K", "Q6_K", "Q8_0")
     
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let {
             context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_PERMISSION
+                it,
+                Intent.FLAG_GRANT_READ_PERMISSION
             )
-            selectedFile = File(uri.path ?: return@let)
-            outputFileName = "${selectedFile?.nameWithoutExtension}-${selectedQuantType.value}.gguf"
+            selectedFile = File(it.path ?: return@let)
+            outputFileName = "${selectedFile?.nameWithoutExtension}-${selectedQuantType}.gguf"
         }
     }
     
-    val outputFilePickerLauncher = rememberLauncherForActivityResult(
+    val outputFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
         uri?.let {
-            val outputFile = File(uri.path ?: return@let)
+            val outputFile = File(it.path ?: return@let)
             selectedFile?.let { file ->
                 vm.quantizeModel(
                     inputFile = file,
@@ -55,12 +61,11 @@ fun OptimizeScreen(vm: MainViewModel) {
     }
     
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Model Quantization") },
                 navigationIcon = {
-                    IconButton(onClick = { /* Navigate back */ }) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -75,11 +80,37 @@ fun OptimizeScreen(vm: MainViewModel) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                InfoCard(
-                    title = "Model Optimization",
-                    description = "Reduce model size through quantization. This operation will create a new GGUF file with lower precision weights.",
-                    icon = Icons.Default.Info
-                )
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                "Model Quantization",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Reduce model size through quantization. Coming soon!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
             }
             
             item {
@@ -93,6 +124,145 @@ fun OptimizeScreen(vm: MainViewModel) {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
+                            "Input Model",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { filePickerLauncher.launch(arrayOf("application/octet-stream", "*/*")) }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.FileOpen,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        selectedFile?.name ?: "Select GGUF File",
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    if (selectedFile != null) {
+                                        Text(
+                                            "Size: ${selectedFile!!.length() / (1024 * 1024)} MB",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    Icons.Default.ChevronRight,
+                                    contentDescription = "Select"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            "Quantization Format",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            quantTypes.forEach { type ->
+                                FilterChip(
+                                    selected = selectedQuantType == type,
+                                    onClick = { selectedQuantType = type },
+                                    label = { Text(type) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = false
+                                )
+                            }
+                        }
+                        
+                        Text(
+                            "⚠️ Quantization is coming soon! This feature is disabled.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            
+            item {
+                Button(
+                    onClick = { outputFileLauncher.launch(outputFileName) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = selectedFile != null && false, // Disabled
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Compress,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Start Quantization (Coming Soon)")
+                }
+            }
+            
+            if (vm.isOperationInProgress) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Operation in Progress",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                vm.operationDetails,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            LinearProgressIndicator(
+                                progress = vm.operationProgress / 100f,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Button(
+                                onClick = { vm.cancelOperation() },
+                                modifier = Modifier.align(Alignment.End),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}                        Text(
                             "Input Model",
                             style = MaterialTheme.typography.titleMedium
                         )
