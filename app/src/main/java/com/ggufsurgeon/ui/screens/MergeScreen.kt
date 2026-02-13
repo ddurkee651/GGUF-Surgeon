@@ -1,5 +1,6 @@
 package com.ggufsurgeon.ui.screens
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -12,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import android.content.Intent
+import com.ggufsurgeon.domain.OperationResult
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -35,10 +36,10 @@ fun MergeScreen(
     ) { uri ->
         uri?.let {
             context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_PERMISSION
+                it,
+                Intent.FLAG_GRANT_READ_PERMISSION
             )
-            baseModelFile = File(uri.path ?: return@let)
+            baseModelFile = File(it.path ?: return@let)
             outputFileName = "${baseModelFile?.nameWithoutExtension}-merged.gguf"
         }
     }
@@ -48,10 +49,10 @@ fun MergeScreen(
     ) { uri ->
         uri?.let {
             context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_PERMISSION
+                it,
+                Intent.FLAG_GRANT_READ_PERMISSION
             )
-            loraAdapterFile = File(uri.path ?: return@let)
+            loraAdapterFile = File(it.path ?: return@let)
         }
     }
     
@@ -59,7 +60,7 @@ fun MergeScreen(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
         uri?.let {
-            val outputFile = File(uri.path ?: return@let)
+            val outputFile = File(it.path ?: return@let)
             baseModelFile?.let { base ->
                 loraAdapterFile?.let { lora ->
                     vm.mergeLora(
@@ -93,6 +94,282 @@ fun MergeScreen(
                     }
                 }
             )
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.MergeType,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                "LoRA Adapter Merge",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Combine a base GGUF model with a LoRA adapter to create a merged model.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            "Base Model",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        FileSelectorRow(
+                            label = "Select Base GGUF",
+                            selectedFile = baseModelFile,
+                            onClick = { baseModelPicker.launch(arrayOf("application/octet-stream", "*/*")) }
+                        )
+                        
+                        Divider()
+                        
+                        Text(
+                            "LoRA Adapter",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        FileSelectorRow(
+                            label = "Select LoRA Adapter",
+                            selectedFile = loraAdapterFile,
+                            onClick = { loraAdapterPicker.launch(arrayOf("application/octet-stream", "*/*")) }
+                        )
+                        
+                        Divider()
+                        
+                        Text(
+                            "Merge Parameters",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        OutlinedTextField(
+                            value = alpha,
+                            onValueChange = { alpha = it },
+                            label = { Text("Alpha (scale factor)") },
+                            placeholder = { Text("1.0") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = alpha.toFloatOrNull() == null,
+                            supportingText = {
+                                if (alpha.toFloatOrNull() == null) {
+                                    Text("Must be a valid number")
+                                }
+                            }
+                        )
+                        
+                        Text(
+                            "Recommended: 1.0 for most adapters",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            
+            if (baseModelFile != null && loraAdapterFile != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Ready to Merge",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Base: ${baseModelFile!!.name}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Adapter: ${loraAdapterFile!!.name}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Alpha: $alpha",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+            
+            if (vm.isOperationInProgress) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Operation in Progress",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                vm.operationDetails,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            LinearProgressIndicator(
+                                progress = vm.operationProgress / 100f,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Button(
+                                onClick = { vm.cancelOperation() },
+                                modifier = Modifier.align(Alignment.End),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            vm.lastOperationResult?.let { result ->
+                if (result is OperationResult.Success) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Merge Complete",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                                Text(
+                                    result.details,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    "Output: ${File(result.outputPath).name}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FileSelectorRow(
+    label: String,
+    selectedFile: File?,
+    onClick: () -> Unit
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.FileOpen,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    selectedFile?.name ?: label,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                if (selectedFile != null) {
+                    Text(
+                        "${selectedFile.length() / (1024 * 1024)} MB",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "Select"
+            )
+        }
+    }
+}            )
         }
     ) { paddingValues ->
         LazyColumn(
