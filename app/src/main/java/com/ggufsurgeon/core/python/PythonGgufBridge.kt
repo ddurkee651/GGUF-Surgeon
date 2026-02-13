@@ -1,8 +1,6 @@
 package com.ggufsurgeon.core.python
 
 import android.content.Context
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import com.ggufsurgeon.domain.ModelFile
 import com.ggufsurgeon.domain.TensorInfo
 import kotlinx.coroutines.Dispatchers
@@ -10,26 +8,82 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 
+/**
+ * Bridge to Python GGUF tools using ProcessBuilder to call Python directly
+ * This assumes Python is available on the system (Termux) or you're using the Python binary from assets
+ */
 class PythonGgufBridge(private val context: Context) {
     
-    init {
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(context))
+    private val pythonScriptPath: String by lazy {
+        // Copy script from assets to files directory
+        val scriptFile = File(context.filesDir, "gguf_android_bridge.py")
+        if (!scriptFile.exists()) {
+            context.assets.open("python/gguf_android_bridge.py").use { input ->
+                scriptFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            scriptFile.setExecutable(true)
+        }
+        scriptFile.absolutePath
+    }
+    
+    suspend fun inspectModel(file: File): Result<ModelFile> = withContext(Dispatchers.IO) {
+        try {
+            val process = ProcessBuilder(
+                "python3",
+                pythonScriptPath,
+                "inspect",
+                file.absolutePath
+            ).start()
+            
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+            
+            if (exitCode == 0) {
+                val json = JSONObject(output)
+                Result.success(parseModelJson(json, file))
+            } else {
+                val error = process.errorStream.bufferedReader().readText()
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
     
-    suspend fun inspectModel(file: File): ModelFile = withContext(Dispatchers.IO) {
-        val py = Python.getInstance()
-        val ggufModule = py.getModule("gguf_android_bridge")
-        
-        val params = py.call {
-            it.put("path", file.absolutePath)
+    suspend fun mergeLora(
+        baseModel: File,
+        loraAdapter: File,
+        alpha: Float,
+        outputFile: File
+    ): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            val process = ProcessBuilder(
+                "python3",
+                pythonScriptPath,
+                "merge",
+                baseModel.absolutePath,
+                loraAdapter.absolutePath,
+                alpha.toString(),
+                outputFile.absolutePath
+            ).start()
+            
+            val exitCode = process.waitFor()
+            
+            if (exitCode == 0) {
+                Result.success(outputFile)
+            } else {
+                val error = process.errorStream.bufferedReader().readText()
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        
-        val result = ggufModule.callAttr("process_command", "inspect", params)
-        val json = JSONObject(result.toString())
-        
-        ModelFile(
+    }
+    
+    private fun parseModelJson(json: JSONObject, file: File): ModelFile {
+        return ModelFile(
             name = json.getString("name"),
             architecture = json.getString("architecture"),
             contextLength = json.getInt("context_length"),
@@ -54,42 +108,9 @@ class PythonGgufBridge(private val context: Context) {
                     )
                 }
             },
-            fileSize = json.getLong("file_size"),
-            filePath = file.absolutePath
+            fileSize = file.length(),
+            filePath = file.absolutePath,
+            validationWarnings = emptyList()
         )
     }
-    
-    suspend fun editMetadata(input: File, output: File, updates: Map<String, String>): File = 
-        withContext(Dispatchers.IO) {
-            val py = Python.getInstance()
-            val ggufModule = py.getModule("gguf_android_bridge")
-            
-            val params = py.call {
-                it.put("input", input.absolutePath)
-                it.put("output", output.absolutePath)
-                val updatesPy = py.call { 
-                    updates.forEach { (k, v) -> it.put(k, v) }
-                }
-                it.put("updates", updatesPy)
-            }
-            
-            ggufModule.callAttr("process_command", "edit", params)
-            output
-        }
-    
-    suspend fun mergeLora(base: File, lora: File, alpha: Float, output: File): File = 
-        withContext(Dispatchers.IO) {
-            val py = Python.getInstance()
-            val ggufModule = py.getModule("gguf_android_bridge")
-            
-            val params = py.call {
-                it.put("base", base.absolutePath)
-                it.put("lora", lora.absolutePath)
-                it.put("alpha", alpha)
-                it.put("output", output.absolutePath)
-            }
-            
-            ggufModule.callAttr("process_command", "merge", params)
-            output
-        }
 }
